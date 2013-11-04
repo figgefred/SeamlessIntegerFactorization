@@ -5,6 +5,9 @@ import "math/big"
 import "math/rand"
 import "time"
 import "runtime"
+import "bufio"
+import "os"
+import "strings"
 
 type polynomial func(*big.Int) *big.Int
 
@@ -85,32 +88,47 @@ func factorise(toFactor *big.Int) string {
 var result chan string
 
 func main() {
-	
-	toFactor := new(big.Int)
-	fmt.Scan(toFactor)		
-	
+		
+	reader := bufio.NewReader(os.Stdin)
+
+	//factorCount := 100
+	factorCount := 2
+	factorValues := make([]*big.Int, factorCount)
+	// Read in line by line
+    for i := 0; i < factorCount; i++ {
+        line, _ := reader.ReadString('\n')
+        factorValues[i] = new(big.Int)
+        if _, ok := factorValues[i].SetString(strings.TrimSpace(line), 10) ; !ok {
+        	fmt.Println("Parse error of", line)
+        	
+			// Exit
+        	return
+        }
+    }
+
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	
-	//timeout := time.After(time.Duration(deadline) * time.Second)
-	result = make(chan string)
-	timeout := make(chan bool, 1)
-	
-	go func() {
-		result <- factorise(toFactor)
-	}();
-	
-	go func() {
-		time.Sleep(time.Duration(deadline) * time.Second)	
-		timeout <- true
-	}();
-	
-	select {		
-		case factors := <- result:
-			fmt.Println(factors)	
-			break
-		case <- timeout:
-			fmt.Println("fail")	
-			fmt.Println()		
-			break
-	}
+	for _, toFactor := range factorValues {
+
+		//timeout := time.After(time.Duration(deadline) * time.Second)
+		result = make(chan string)
+		timeout := make(chan bool, 1)
+		
+		go func() {
+			result <- factorise(toFactor)
+		}();
+		
+		go func() {
+			time.Sleep(time.Duration(deadline) * time.Second)	
+			timeout <- true
+		}();
+		
+		select {		
+			case factors := <- result:
+				fmt.Println(factors)	
+			case <- timeout:
+				fmt.Println("fail")	
+				fmt.Println()		
+		}
+	}	
 }
