@@ -4,11 +4,14 @@ import "fmt"
 import "math/big"
 import "math/rand"
 import "time"
+import "runtime"
 
 type polynomial func(*big.Int) *big.Int
 
 var (
 	rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	deadline = 5
+	prime_precision = 20
 )
 
 func pollardRho(toFactor *big.Int, f polynomial) (*big.Int, bool) {
@@ -43,15 +46,15 @@ func get_f(toFactor *big.Int) polynomial {
 	}
 }
 
-func factorise(toFactor *big.Int) {	
-	if(toFactor.ProbablyPrime(20)) {
-		fmt.Println(toFactor)
-		return
+func factorise(toFactor *big.Int) string {	
+	if(toFactor.ProbablyPrime(prime_precision)) {
+		return toFactor.String() + "\n"
 	}
 	
 	quo := new(big.Int)
 	quo.Set(toFactor)
 	
+	var buf string
 	//f := get_f(new(big.Int).Mul(toFactor,toFactor))
 	for(quo.Cmp(big.NewInt(1)) > 0) {
 		f := get_f(toFactor)
@@ -64,24 +67,50 @@ func factorise(toFactor *big.Int) {
 		
 		quo.Quo(quo, factor)				
 		
-		if(!factor.ProbablyPrime(20)) {
-			factorise(factor)
+		if(!factor.ProbablyPrime(prime_precision)) {
+			buf += factorise(factor)
 		} else {
-			fmt.Println(factor) //.String() + ", " + quo.String())
+			buf += factor.String() + "\n" 
 		}
 		
-		if(quo.ProbablyPrime(20)) {
-			fmt.Println(quo)
-			return
+		if(quo.ProbablyPrime(prime_precision)) {
+			buf += quo.String() + "\n"
+			break
 		}
-		
-		
 	}
+	
+	return buf
 }
 
+var result chan string
+
 func main() {
+	
 	toFactor := new(big.Int)
-	//fmt.Println(rng.Int31())
 	fmt.Scan(toFactor)		
-	factorise(toFactor)
+	
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	
+	//timeout := time.After(time.Duration(deadline) * time.Second)
+	result = make(chan string)
+	timeout := make(chan bool, 1)
+	
+	go func() {
+		result <- factorise(toFactor)
+	}();
+	
+	go func() {
+		time.Sleep(time.Duration(deadline) * time.Second)	
+		timeout <- true
+	}();
+	
+	select {		
+		case factors := <- result:
+			fmt.Println(factors)	
+			break
+		case <- timeout:
+			fmt.Println("fail")	
+			fmt.Println()		
+			break
+	}
 }
