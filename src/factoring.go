@@ -55,10 +55,10 @@ func coordinate(tasks []*task, finishedChan *chan bool) {
 	}
 	
 	// Some counters
-	taskChannelSpace := numWorkers
 	nextTask := 0
 	resultsReceived := 0
 	runTime := totalRunTime
+	activeGoRoutines := 0
 //	initTime := time.Now()
 
 	// Receive and save results and create new tasks if possible until done
@@ -70,18 +70,19 @@ func coordinate(tasks []*task, finishedChan *chan bool) {
 					for _, res := range result {
 						if res.factor == nil {
 							results[res.index] = nil	
-							////fmt.Println("Coordinator:", "Failed task", res.index)			
+							//fmt.Println("Coordinator:", "Failed task", res.index)			
+							fmt.Println("Coordinator:", "Trashed task", res.index)			
 							break
 						}
 						////fmt.Println("Coordinator:", "Received result", res.index)			
 						results[res.index] = append(results[res.index], res)
 					}
+					activeGoRoutines--
 					resultsReceived++
 				}
 			default:
-				channelSpace := taskChannelSpace - len(taskChannel)
-				if nextTask < len(tasks) && channelSpace > 0 {
-					for i := 0; i < channelSpace; i++ {
+				if activeGoRoutines < numWorkers && nextTask < len(tasks) {
+					for activeGoRoutines+1 <= numWorkers {
 						if nextTask == len(tasks) {
 							break
 						}
@@ -89,9 +90,10 @@ func coordinate(tasks []*task, finishedChan *chan bool) {
 						nextTask += 1
 						runTime = totalRunTime/(len(tasks)-resultsReceived)
 						timeout := time.Duration(runTime)*time.Millisecond
-						////fmt.Println("Coordinator:", "Setting timelimit @", timeout, "for Worker", nextTask)
+						fmt.Println("Coordinator:", "Setting timelimit @", timeout, "for Worker", nextTask)
 						start := time.Now()
 						go work(start, timeout, *t)
+						activeGoRoutines++
 					}
 				} else if nextTask == len(tasks) && resultsReceived == len(tasks) {
 					////fmt.Println("Coordinator:", "Now we are done")
@@ -118,7 +120,7 @@ func work(start time.Time, timeout time.Duration, task task) {
 	if rawResult == nil {
 		res := partResult{task.index, nil}
 		result = append(result, &res)
-	//	//fmt.Println("Worker:", "Exeeded time limit of", timeout)
+	fmt.Println("Worker:", "Exeeded time limit of", timeout)
 	}
 	for _, rawRes := range rawResult {
 		res := partResult{task.index, rawRes}
@@ -126,7 +128,6 @@ func work(start time.Time, timeout time.Duration, task task) {
 	}
 	// Send to coordinator
 	resultSubmission <- result
-
 }
 
 func printResult(resultCollection [][]*partResult) {
