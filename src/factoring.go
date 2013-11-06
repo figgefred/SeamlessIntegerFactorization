@@ -9,7 +9,6 @@ import "bufio"
 import "os"
 import "strings"
 import "sort"
-//import "strconv"
 
 type partResult struct {
 	index int
@@ -19,9 +18,9 @@ type partResult struct {
 type factoring func(time.Time, time.Duration, *big.Int) []*big.Int
 
 var (
-	totalRunTime int = 15000 // milliseconds
-
+	allowedRunTime int = 1400 // milliseconds
 	numWorkers int
+	numTasks int
 	inputsize int
 	rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 	deadline = 10
@@ -29,7 +28,8 @@ var (
 	capacity = 100
 	
 	resultChannel = make(chan [][]*partResult)
-
+	stopTime = time.Now()
+	
 	resultSubmission chan []*partResult
 	taskChannel chan *task
 )
@@ -52,9 +52,10 @@ func coordinate(tasks Tasks, finishedChan *chan bool) {
 	// Some counters
 	nextTask := 0
 	resultsReceived := 0
-	runTime := totalRunTime
 	activeGoRoutines := 0
-
+	numTasks = len(tasks)
+	resultsReceived = 0
+	
 	// Receive and save results and create new tasks if possible until done
 	done := false
 	for !done {
@@ -64,36 +65,24 @@ func coordinate(tasks Tasks, finishedChan *chan bool) {
 					for _, res := range result {
 						if res.factor == nil {
 							results[res.index] = nil	
-							//fmt.Println("Coordinator:", "Failed task", res.index)			
-							//fmt.Println("Coordinator:", "Trashed task", res.index)			
+							//~ fmt.Println("Coordinator:", "Failed task", res.index)			
 							break
 						}
-						////fmt.Println("Coordinator:", "Received result", res.index)			
+						//~ fmt.Println("Coordinator:", "Received result", res.index)			
 						results[res.index] = append(results[res.index], res)
 					}
 					activeGoRoutines--
 					resultsReceived++
 				}
 			default:
-				if activeGoRoutines < numWorkers && nextTask < len(tasks) {
-					for activeGoRoutines+1 <= numWorkers {
-						if nextTask == len(tasks) {
-							break
-						}
-						t := tasks[nextTask]
-						nextTask += 1
-						runTime = (totalRunTime/len(tasks))
-						timeout := time.Duration(runTime)*time.Millisecond
-						//fmt.Println("Coordinator:", "Setting timelimit @", timeout, "for Worker", nextTask)
-						start := time.Now()
-						go work(start, timeout, *t, pollardFactoring)
-						activeGoRoutines++
-					}
+				if activeGoRoutines < numWorkers && nextTask < len(tasks) {				
+					t := tasks[nextTask]
+					nextTask += 1
+					go work(*t)
+					activeGoRoutines++					
 				} else if nextTask == len(tasks) && resultsReceived == len(tasks) {
-					////fmt.Println("Coordinator:", "Now we are done")
 					done = true
 				} else {
-					////fmt.Println("Coordinator:", "Nothing to do")
 					runtime.Gosched()
 				}
 		}
@@ -106,10 +95,9 @@ func coordinate(tasks Tasks, finishedChan *chan bool) {
 	*finishedChan <- true
 }
 
-func work(start time.Time, timeout time.Duration, task task, f factoring) {
-	
+func work(task task) {
 	// Do task if it is not nil
-	rawResult := f(start, timeout, &task.toFactor)
+	rawResult := factorise(&task.toFactor)
 	result := make([]*partResult, 0, 100)
 	if rawResult == nil {
 		res := partResult{task.index, nil}
@@ -142,12 +130,12 @@ func printResult(resultCollection [][]*partResult) {
 	}
 }
 
-func main() {
-		
-	reader := bufio.NewReader(os.Stdin)
+func main() {		
 
+	reader := bufio.NewReader(os.Stdin)
+	
 	factorCount := 100
-	tasks := make(Tasks, 0, factorCount)
+	tasks := make(Tasks, 0, factorCount)	
 	// Read in line by line
 	for i:=0; ; i++ {
         line, _ := reader.ReadString('\n')
@@ -157,61 +145,35 @@ func main() {
 
         factorValue, ok := (new(big.Int)).SetString(strings.TrimSpace(line), 10) 
         if !ok {
-        	////fmt.Println("Parse error of", line)
-			// Exit
-        	return
+			break
         } else {
-        	newTask := new(task)
-        	newTask.index = int(i)
-        	newTask.toFactor = *factorValue
-        	tasks = append(tasks, newTask)
+			newTask := new(task)
+			newTask.index = int(i)
+			newTask.toFactor = *factorValue
+			tasks = append(tasks, newTask)
         }
     }
+    
+    timeout := time.Duration(allowedRunTime) * time.Millisecond
+	stopTime = time.Now().Add(timeout)
+	//~ fmt.Println("Current time:", time.Now())
+	//~ fmt.Println("Timeout set for:", stopTime)
+	
+	
     inputsize = len(tasks)
     sort.Sort(tasks)
+    
+    //~ for _, toFactor := range tasks {
+		//~ fmt.Println(toFactor)
+	//~ }
+	
 
-    //for _, t  := range tasks{
-    	//fmt.Println(t.toFactor)
-    //}
-
-    //numProcs := runtime.NumCPU()
-    numProcs := 1
-	runtime.GOMAXPROCS(numProcs)
-
-	numWorkers = numProcs
+    //~ numProcs := runtime.NumCPU()
+    numWorkers = runtime.NumCPU()
+	runtime.GOMAXPROCS(numWorkers)
 	
 	quit := make(chan bool)
 	go coordinate(tasks, &quit)
 	<- quit
-	/*if( numProcs > 1) {
-		for _, _ = range factorValues {
-			////fmt.Println("fail")
-			////fmt.Println("")
-		}
-		return
-	}*/
-	/*
-	for _, toFactor := range factorValues {
-
-		//timeout := time.After(time.Duration(deadline) * time.Second)
-		resultChannel = make(chan string)
-		timeout := make(chan bool, 1)
-		
-		go func() {
-			resultChannel <- factorise(toFactor)
-		}();
-		
-		go func() {
-			time.Sleep(time.Duration(deadline) * time.Millisecond)	
-			timeout <- true
-		}();
-		
-		select {		
-			case factors := <- resultChannel:
-				////fmt.Println(factors)	
-			case <- timeout:
-				////fmt.Println("fail")	
-				////fmt.Println()		
-		}
-	}*/
+	//~ fmt.Println("Current time:", time.Now())
 }
