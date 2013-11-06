@@ -4,7 +4,6 @@ import "math/big"
 import "math/rand"
 import "runtime"
 import "time"
-//~ import "fmt"
 
 type polynomial func(*big.Int) *big.Int
 
@@ -55,7 +54,6 @@ func pollardRho(task *Task, toFactor *big.Int, f polynomial) (*big.Int, bool, bo
 }
 
 func pollardFactoring(task *Task) ([]*big.Int, bool) {	
-	//~ fmt.Println("Starting pollard.")
 	buffer := make([]*big.Int, 0, 100)
 	quo := new(big.Int)
 	quo.Set(task.toFactor)

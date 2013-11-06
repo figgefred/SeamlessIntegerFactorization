@@ -1,28 +1,31 @@
 package main
 
-//~ import "fmt"
+import "fmt"
 import "math/big"
 import "time"
 import "runtime"
 import "bufio"
 import "os"
 import "strings"
-import "sort"
-
-/*
-type (
-    factoring func(*big.Int, chan bool) ([]*big.Int, bool)
-	naivefactoring func(*big.Int) ([]*big.Int, *big.Int, bool)
-) */
+//~ import "sort"
 
 var (
 	numWorkers = 1 // Kommer antagligen alltid vara ett för kattis..
-	allowedRunTime  int = 14000 // milliseconds
+	allowedRunTime  int = 14500 // milliseconds
 	prime_precision = 20
+	debug = true
 )
 
+func dprint(a ...interface{}) {
+	if(!debug) {
+		return
+	}
+	fmt.Println(a...)
+}
 
-func main() {
+
+func main() {	
+	dprint("[DEBUG] is on!")
 	reader := bufio.NewReader(os.Stdin)
 	factorCount := 100
 	tasks := make(Tasks, 0, factorCount)
@@ -45,7 +48,8 @@ func main() {
 	timeout := time.Duration(allowedRunTime) * time.Millisecond	
 	stopTime := time.Now().Add(timeout)
 	
-	sort.Sort(tasks)
+	// Remember to sort results if you turn this on again.
+	//~ sort.Sort(tasks)
 
 	runtime.GOMAXPROCS(numWorkers)
 

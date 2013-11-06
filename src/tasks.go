@@ -1,7 +1,6 @@
 package main
 
 import "time"
-import "fmt"
 
 type Tasks []*Task
 
@@ -27,14 +26,14 @@ func (tasks Tasks) RunTasksWithTimeout(stopTime time.Time) {
 	finishedTasks := 0
 	for _, task := range tasks {
 		duration := stopTime.Sub(time.Now()) / time.Duration(len(tasks) - finishedTasks)
-		fmt.Println(duration)
+		dprint(duration)
 		go task.Run()
 		select {
 			case <-time.After(duration):
-				fmt.Println("Timeout occured.")
+				dprint("Timeout occured.")
 				task.Stop()
 			case <-task.ch:		
-				fmt.Println("Finished normally.")							
+				dprint("Finished normally.")							
 		}		
 		finishedTasks++
 	}

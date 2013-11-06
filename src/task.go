@@ -37,7 +37,6 @@ func (task* Task) Stop() {
 	task.ch <- true
 	task.finished = true
 	task.waitGroup.Wait()
-	//~ fmt.Println("no longer waiting.")
 }
 
 func (task* Task) PrintResult() {
