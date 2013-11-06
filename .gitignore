@@ -19,4 +19,10 @@ _cgo_export.*
 
 _testmain.go
 
+#test data
+*.test
+
+# Executables
 *.exe
+testrun
+

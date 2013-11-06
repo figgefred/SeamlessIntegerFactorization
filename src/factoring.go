@@ -87,7 +87,6 @@ func coordinate(factoringMethod factoring, tasks Tasks, finishedChan *chan bool)
 				}
 		}
 	}
-	close(resultSubmission)
 	//elapsedTime := time.Since(initTime)
 	// Dump out to sys out
 	printResult(results)
@@ -142,8 +141,8 @@ func main() {
 	tasks := make(Tasks, 0, factorCount)	
 	// Read in line by line
 	for i:=0; ; i++ {
-        line, _ := reader.ReadString('\n')
-    	if(strings.TrimSpace(line) == "") {
+        line, err := reader.ReadString('\n')
+    	if(err != nil || strings.TrimSpace(line) == "") {
     		break
     	}
 
@@ -151,6 +150,7 @@ func main() {
         if !ok {
 			break
         } else {
+			fmt.Println("Parsed", factorValue)
 			newTask := new(Task)
 			newTask.index = int(i)
 			newTask.toFactor = *factorValue
