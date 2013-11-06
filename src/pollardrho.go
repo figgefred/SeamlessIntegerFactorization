@@ -25,19 +25,18 @@ func get_f(toFactor *big.Int) polynomial {
 	}
 }
 
-func pollardRho(toFactor *big.Int, f polynomial, finished chan bool) (*big.Int, bool, bool) {
+func pollardRho(task *Task, toFactor *big.Int, f polynomial) (*big.Int, bool, bool) {
 	var x,y,d *big.Int
 	x = big.NewInt(2)
 	y = big.NewInt(2)
 	d = big.NewInt(1)
 
 	for(d.Cmp(big.NewInt(1)) == 0) {	
-		select {
-			case <-finished:			
-				//~ fmt.Println("Timeout signal 2!")				
-				return d, false, true
-			default:
+		if(task.ShouldStop()) {
+			return d, false, true
 		}
+		
+		
 		x = f(x) 
 		y = f(f(y))
 		r := new(big.Int)
@@ -55,22 +54,19 @@ func pollardRho(toFactor *big.Int, f polynomial, finished chan bool) (*big.Int, 
 	return d, false, false
 }
 
-func pollardFactoring(toFactor *big.Int, finished chan bool) ([]*big.Int, bool) {	
+func pollardFactoring(task *Task) ([]*big.Int, bool) {	
 	//~ fmt.Println("Starting pollard.")
 	buffer := make([]*big.Int, 0, 100)
 	quo := new(big.Int)
-	quo.Set(toFactor)
+	quo.Set(task.toFactor)
 	
-	f := get_f(toFactor)
+	f := get_f(task.toFactor)
 	for !quo.ProbablyPrime(prime_precision) {//quo.Cmp(big.NewInt(1)) > 0) {
-		select {
-			case <-finished:
-				//~ fmt.Println("Timeout signal 3!")
-				return buffer, true
-			default:
+		if(task.ShouldStop()) {
+			return buffer, true
 		}
 		
-		tmp, newQuo, timed_out := trialdivision(quo, finished)		
+		tmp, newQuo, timed_out := trialdivision(task,quo)		
 		buffer = append(buffer, tmp...)
 		if(timed_out) {
 			return buffer, true
@@ -81,14 +77,14 @@ func pollardFactoring(toFactor *big.Int, finished chan bool) ([]*big.Int, bool) 
 		quo = newQuo		
 		
 
-		factor, error, timed_out := pollardRho(quo, f, finished)		
+		factor, error, timed_out := pollardRho(task, quo, f)		
 		if(timed_out) {
 			return buffer, true
 		}
 		
 		if(error || !factor.ProbablyPrime(prime_precision)) {
 			// Try again
-			f = get_f(toFactor)
+			f = get_f(task.toFactor)
 			continue
 		}
 		buffer = append(buffer, factor)
