@@ -7,7 +7,7 @@ import "runtime"
 import "bufio"
 import "os"
 import "strings"
-//import "sort"
+import "sort"
 
 type partResult struct {
 	index  int
@@ -57,10 +57,10 @@ func coordinate(factoringMethod factoring, tasks Tasks, finishedChan *chan bool)
 				for _, res := range result {
 					if res.factor == nil {
 						results[res.index] = nil
-						//~ //fmt.Println("Coordinator:", "Failed task", res.index)			
+						//~ ////fmt.Println("Coordinator:", "Failed task", res.index)			
 						break
 					}
-					//~ //fmt.Println("Coordinator:", "Received result", res.index)			
+					//~ ////fmt.Println("Coordinator:", "Received result", res.index)			
 					results[res.index] = append(results[res.index], res)
 				}
 				activeGoRoutines--
@@ -75,20 +75,20 @@ func coordinate(factoringMethod factoring, tasks Tasks, finishedChan *chan bool)
 				go work(*t, factoringMethod)
 				activeGoRoutines++
 			} else if nextTask == len(tasks) && resultsReceived == len(tasks) {
-				//fmt.Println("Coordinator:", "Finished work @", t1)
+				////fmt.Println("Coordinator:", "Finished work @", t1)
 				done = true
 			} else if time.Now().Equal(stopTime) || time.Now().After(stopTime) {
-				//fmt.Println("Coordinator:", "Timeout @", t1)
+				////fmt.Println("Coordinator:", "Timeout @", t1)
 				done = true
 			}
 			runtime.Gosched()
 		}
 	}
-	//fmt.Println("Coordinator:", "Done")
+	////fmt.Println("Coordinator:", "Done")
 	//elapsedTime := time.Since(initTime)
 	// Dump out to sys out
 	printResult(results)
-	//////fmt.Println("Coordinator:", "Finished after", elapsedTime)
+	////////fmt.Println("Coordinator:", "Finished after", elapsedTime)
 	*finishedChan <- true
 }
 
@@ -118,8 +118,10 @@ func printResult(resultCollection [][]*partResult) {
 // Do work with task and submit answer through global resultSubmission (channel)
 func work(task Task, f factoring) {
 
+	rawResult := make([]*big.Int, 0, 15)
+	newFactor := &task.toFactor
 	// Lets try to shorten the value
-	rawResult, newFactor := trialdivision(task.toFactor)
+	rawResult, newFactor = trialdivision(*newFactor)
 
 	// We are done
 	if newFactor == nil {
@@ -142,7 +144,7 @@ func doResultSubmission(taskId int, rawResult []*big.Int) {
 	if rawResult == nil {
 		res := partResult{taskId, nil}
 		result = append(result, &res)
-		////fmt.Println("Worker:", "Exeeded time limit of", timeout)
+		//////fmt.Println("Worker:", "Exeeded time limit of", timeout)
 	} else {
 		for _, rawRes := range rawResult {
 			res := partResult{taskId, rawRes}
@@ -178,12 +180,12 @@ func main() {
 	}
 
 	timeout := time.Duration(allowedRunTime) * time.Millisecond
-	//fmt.Println("Timeout is", timeout)
+	////fmt.Println("Timeout is", timeout)
 	stopTime = time.Now().Add(timeout)
-	//sort.Sort(tasks)
+	sort.Sort(tasks)
 
 	//~ for _, toFactor := range tasks {
-	//~ //fmt.Println(toFactor)
+	//~ ////fmt.Println(toFactor)
 	//~ }
 
 	runtime.GOMAXPROCS(numWorkers)
@@ -191,5 +193,5 @@ func main() {
 	quit := make(chan bool, 1)
 	go coordinate(pollardFactoring, tasks, &quit)
 	<-quit	
-	//fmt.Println("Time elapsed", time.Now().Sub(start))
+	////fmt.Println("Time elapsed", time.Now().Sub(start))
 }

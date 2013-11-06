@@ -52,42 +52,23 @@ func pollardRho(toFactor *big.Int, f polynomial) (*big.Int, bool) {
 
 func pollardFactoring(toFactor *big.Int) []*big.Int {	
 	buffer := make([]*big.Int, 0, 100)
-	if(toFactor.ProbablyPrime(prime_precision)) {
-		return append(buffer, toFactor)
-	}
 	
 	quo := new(big.Int)
 	quo.Set(toFactor)
 	
-	for(quo.Cmp(big.NewInt(1)) > 0) {
+	for !quo.ProbablyPrime(prime_precision) {//quo.Cmp(big.NewInt(1)) > 0) {
 
 		f := get_f(toFactor)
 		factor, error := pollardRho(quo, f)
 		
-		if(error || factor.Int64() == int64(0)) {
+		if(error || !factor.ProbablyPrime(prime_precision)) {
 			// Try again
 			continue
 		}
-		
+		buffer = append(buffer, factor)
         quo.Quo(quo, factor)                                
-        
-        if(!factor.ProbablyPrime(prime_precision)) {	
-        	res := pollardFactoring(factor)
-        	if res == nil {
-        		return nil
-        	}
-        	for _, r := range res {
-        		buffer = append(buffer, r)
-        	}
-        } else {
-        	buffer = append(buffer, factor)
-        }
 
-        if(quo.ProbablyPrime(prime_precision)) {
-            buffer = append(buffer, quo)
-            break
-        }
 	}
-	// Lets redo this - send back old task for hope of better function
+	buffer = append(buffer, quo)
 	return buffer
 }
