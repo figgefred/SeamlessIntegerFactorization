@@ -1,9 +1,15 @@
 package main
 
 import "math/big"
+import "math/rand"
 import "runtime"
+import "time"
 
 type polynomial func(*big.Int) *big.Int
+
+var (
+	rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+)
 
 func get_f(toFactor *big.Int) polynomial {
 	return func(x *big.Int) *big.Int {

@@ -2,7 +2,6 @@ package main
 
 import "fmt"
 import "math/big"
-import "math/rand"
 import "time"
 import "runtime"
 import "bufio"
@@ -15,24 +14,19 @@ type partResult struct {
 	factor *big.Int
 }
 
-type factoring func(*big.Int) []*big.Int
-type naivefactoring func(*big.Int) ([]*big.Int, *big.Int)
+type (
+	factoring func(*big.Int) []*big.Int
+	naivefactoring func(*big.Int) ([]*big.Int, *big.Int)
+) 
+
 
 var (
-	allowedRunTime  int = 14000 // milliseconds
-	numWorkers      int
-	numTasks        int
-	inputsize       int
-	rng             = rand.New(rand.NewSource(time.Now().UnixNano()))
-	deadline        = 10
-	prime_precision = 20
-	capacity        = 100
-
-	resultChannel = make(chan [][]*partResult)
-	stopTime      time.Time
-
+	stopTime time.Time
 	resultSubmission chan []*partResult
-	taskChannel      chan *Task
+	
+	numWorkers = runtime.NumCPU()
+	allowedRunTime  int = 14000 // milliseconds
+	prime_precision = 20
 )
 
 // Coordinator main function
@@ -43,16 +37,15 @@ func coordinate(factoringMethod factoring, tasks Tasks, finishedChan *chan bool)
 	resultSubmission = make(chan []*partResult, len(tasks))
 
 	// Init collection that will hold results
-	results := make([][]*partResult, inputsize)
-	for i := 0; i < inputsize; i++ {
-		results[i] = make([]*partResult, 0, capacity)
+	results := make([][]*partResult, len(tasks))
+	for i := 0; i < len(tasks); i++ {
+		results[i] = make([]*partResult, 0, len(tasks))
 	}
 
 	// Some counters
 	nextTask := 0
 	resultsReceived := 0
 	activeGoRoutines := 0
-	numTasks = len(tasks)
 	resultsReceived = 0
 
 	// Receive and save results and create new tasks if possible until done
@@ -187,16 +180,12 @@ func main() {
 	timeout := time.Duration(allowedRunTime) * time.Millisecond
 	//fmt.Println("Timeout is", timeout)
 	stopTime = time.Now().Add(timeout)
-
-	inputsize = len(tasks)
 	//sort.Sort(tasks)
 
 	//~ for _, toFactor := range tasks {
 	//~ //fmt.Println(toFactor)
 	//~ }
 
-	//numWorkers = runtime.NumCPU()
-	numWorkers = 1
 	runtime.GOMAXPROCS(numWorkers)
 
 	quit := make(chan bool, 1)
