@@ -8,6 +8,7 @@ import "runtime"
 import "bufio"
 import "os"
 import "strings"
+import "sort"
 //import "strconv"
 
 type task struct {
@@ -21,7 +22,19 @@ type partResult struct {
 }
 
 type polynomial func(*big.Int) *big.Int
+type Tasks []*task
 
+func (tasks Tasks) Len() int {
+	return len(tasks)
+}
+
+func (tasks Tasks) Less(i, j int) bool {
+	return (&tasks[i].toFactor).Cmp(&tasks[j].toFactor) == -1 
+}
+
+func (tasks Tasks) Swap(i, j int) {
+	tasks[i], tasks[j] = tasks[j], tasks[i]
+}
 
 var (
 	totalRunTime int = 15000 // milliseconds
@@ -43,7 +56,7 @@ var (
 // This function initializes new worker Go-routines 
 // for every task.
 // It will only do NumProcs workers at a time.
-func coordinate(tasks []*task, finishedChan *chan bool) {
+func coordinate(tasks Tasks, finishedChan *chan bool) {
 
 	// Reinitialize submission channel
 	resultSubmission = make(chan []*partResult, numWorkers)
@@ -59,7 +72,6 @@ func coordinate(tasks []*task, finishedChan *chan bool) {
 	resultsReceived := 0
 	runTime := totalRunTime
 	activeGoRoutines := 0
-//	initTime := time.Now()
 
 	// Receive and save results and create new tasks if possible until done
 	done := false
@@ -71,7 +83,7 @@ func coordinate(tasks []*task, finishedChan *chan bool) {
 						if res.factor == nil {
 							results[res.index] = nil	
 							//fmt.Println("Coordinator:", "Failed task", res.index)			
-							fmt.Println("Coordinator:", "Trashed task", res.index)			
+							//fmt.Println("Coordinator:", "Trashed task", res.index)			
 							break
 						}
 						////fmt.Println("Coordinator:", "Received result", res.index)			
@@ -88,9 +100,9 @@ func coordinate(tasks []*task, finishedChan *chan bool) {
 						}
 						t := tasks[nextTask]
 						nextTask += 1
-						runTime = totalRunTime/(len(tasks)-resultsReceived)
+						runTime = (totalRunTime/len(tasks))
 						timeout := time.Duration(runTime)*time.Millisecond
-						fmt.Println("Coordinator:", "Setting timelimit @", timeout, "for Worker", nextTask)
+						//fmt.Println("Coordinator:", "Setting timelimit @", timeout, "for Worker", nextTask)
 						start := time.Now()
 						go work(start, timeout, *t)
 						activeGoRoutines++
@@ -120,7 +132,7 @@ func work(start time.Time, timeout time.Duration, task task) {
 	if rawResult == nil {
 		res := partResult{task.index, nil}
 		result = append(result, &res)
-	fmt.Println("Worker:", "Exeeded time limit of", timeout)
+	//fmt.Println("Worker:", "Exeeded time limit of", timeout)
 	}
 	for _, rawRes := range rawResult {
 		res := partResult{task.index, rawRes}
@@ -237,7 +249,7 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 
 	factorCount := 100
-	factorValues := make([]*task, 0, factorCount)
+	tasks := make(Tasks, 0, factorCount)
 	// Read in line by line
 	for i:=0; ; i++ {
         line, _ := reader.ReadString('\n')
@@ -254,10 +266,15 @@ func main() {
         	newTask := new(task)
         	newTask.index = int(i)
         	newTask.toFactor = *factorValue
-        	factorValues = append(factorValues, newTask)
+        	tasks = append(tasks, newTask)
         }
     }
-    inputsize = len(factorValues)
+    inputsize = len(tasks)
+    sort.Sort(tasks)
+
+    //for _, t  := range tasks{
+    	//fmt.Println(t.toFactor)
+    //}
 
     //numProcs := runtime.NumCPU()
     numProcs := 1
@@ -266,7 +283,7 @@ func main() {
 	numWorkers = numProcs
 	
 	quit := make(chan bool)
-	go coordinate(factorValues, &quit)
+	go coordinate(tasks, &quit)
 	<- quit
 	/*if( numProcs > 1) {
 		for _, _ = range factorValues {
