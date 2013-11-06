@@ -14,7 +14,11 @@ var (
 func get_f(toFactor *big.Int) polynomial {
 	return func(x *big.Int) *big.Int {
 		r := new(big.Int).Mul(x,x)
-		r.Add(r, big.NewInt(rng.Int63()))
+		rand_const := rng.Int63()  
+		for rand_const < 1 {
+			rand_const = rng.Int63()  
+		}
+		r.Add(r, big.NewInt(rand_const))
 		r.Mod(r, toFactor)
 		return r
 	}
@@ -26,14 +30,10 @@ func pollardRho(toFactor *big.Int, f polynomial) (*big.Int, bool) {
 	y = big.NewInt(2)
 	d = big.NewInt(1)
 
-
 	for(d.Cmp(big.NewInt(1)) == 0) {
 	
 		x = f(x) 
 		y = f(f(y))
-		//~ ////fmt.Println(x)
-		//~ ////fmt.Println(y)
-		//~ ////fmt.Println()
 		r := new(big.Int)
 		r.Sub(x,y)
 		r.Abs(r)
@@ -55,6 +55,7 @@ func pollardFactoring(toFactor *big.Int) []*big.Int {
 	quo := new(big.Int)
 	quo.Set(toFactor)
 	
+	f := get_f(toFactor)	// QUO??
 	for !quo.ProbablyPrime(prime_precision) {//quo.Cmp(big.NewInt(1)) > 0) {
 		
 		tmp, newQuo := trialdivision(*quo)
@@ -64,11 +65,11 @@ func pollardFactoring(toFactor *big.Int) []*big.Int {
 		}
 		quo = newQuo
 
-		f := get_f(toFactor)	// QUO??
 		factor, error := pollardRho(quo, f)
 		
 		if(error || !factor.ProbablyPrime(prime_precision)) {
 			// Try again
+			f = get_f(toFactor)
 			continue
 		}
 		buffer = append(buffer, factor)

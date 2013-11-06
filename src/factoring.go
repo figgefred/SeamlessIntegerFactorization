@@ -24,7 +24,7 @@ var (
 	stopTime time.Time
 	resultSubmission chan []*partResult
 	
-	numWorkers = runtime.NumCPU()
+	numWorkers = 1
 	allowedRunTime  int = 5000 // milliseconds
 	prime_precision = 20
 )
@@ -41,7 +41,7 @@ func appendSlice(thisSlice, toAppend []*big.Int) []*big.Int {
 
 // Coordinator main function
 // Coordinate task solving and when all is done print results
-func coordinate(factoringMethod factoring, tasks Tasks, finishedChan *chan bool) {
+func coordinate(factoringMethod factoring, tasks Tasks) { // finishedChan *chan bool) {
 
 	// Reinitialize submission channel
 	resultSubmission = make(chan []*partResult, len(tasks))
@@ -99,7 +99,7 @@ func coordinate(factoringMethod factoring, tasks Tasks, finishedChan *chan bool)
 	// Dump out to sys out
 	printResult(results)
 	////////fmt.Println("Coordinator:", "Finished after", elapsedTime)
-	*finishedChan <- true
+	//*finishedChan <- true
 }
 
 // Coordinator function
@@ -202,8 +202,8 @@ func main() {
 
 	runtime.GOMAXPROCS(numWorkers)
 
-	quit := make(chan bool, 1)
-	go coordinate(pollardFactoring, tasks, &quit)
-	<-quit	
+	//quit := make(chan bool, 1)
+	coordinate(pollardFactoring, tasks)
+	//<-quit	
 	////fmt.Println("Time elapsed", time.Now().Sub(start))
 }
