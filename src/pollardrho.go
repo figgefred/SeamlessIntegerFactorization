@@ -1,6 +1,7 @@
 package main
 
 import "math/big"
+import "runtime"
 
 type polynomial func(*big.Int) *big.Int
 
@@ -19,7 +20,9 @@ func pollardRho(toFactor *big.Int, f polynomial) (*big.Int, bool) {
 	y = big.NewInt(2)
 	d = big.NewInt(1)
 
+
 	for(d.Cmp(big.NewInt(1)) == 0) {
+	
 		x = f(x) 
 		y = f(f(y))
 		//~ ////fmt.Println(x)
@@ -29,6 +32,10 @@ func pollardRho(toFactor *big.Int, f polynomial) (*big.Int, bool) {
 		r.Sub(x,y)
 		r.Abs(r)
 		d = r.GCD(nil, nil, r, toFactor)
+    
+		// Allow other go threads to run
+        runtime.Gosched()
+
 	}
 	if(d.Cmp(toFactor) == 0) {
 		return d, true
