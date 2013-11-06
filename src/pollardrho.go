@@ -71,7 +71,7 @@ func pollardFactoring(toFactor *big.Int, finished chan bool) ([]*big.Int, bool) 
 		}
 		
 		tmp, newQuo, timed_out := trialdivision(quo, finished)		
-		buffer = appendSlice(buffer, tmp)
+		buffer = append(buffer, tmp...)
 		if(timed_out) {
 			return buffer, true
 		}
