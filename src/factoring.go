@@ -13,6 +13,7 @@ var (
 	numWorkers = 1 // Kommer antagligen alltid vara ett för kattis..
 	allowedRunTime  int = 14500 // milliseconds
 	prime_precision = 20
+	work_function = pollardFactoring
 	debug = true
 )
 
@@ -25,7 +26,7 @@ func dprint(a ...interface{}) {
 
 
 func main() {	
-	dprint("[DEBUG] is on!")
+	dprint("[DEBUG] is on!!!")
 	reader := bufio.NewReader(os.Stdin)
 	factorCount := 100
 	tasks := make(Tasks, 0, factorCount)
@@ -40,7 +41,7 @@ func main() {
 		if !ok {
 			break
 		} else {
-			newTask := NewTask(int(i), factorValue, pollardFactoring)			
+			newTask := NewTask(int(i), factorValue, work_function)			
 			tasks = append(tasks, newTask)
 		}
 	}
