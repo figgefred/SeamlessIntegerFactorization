@@ -15,8 +15,8 @@ type partResult struct {
 }
 
 type (
-	factoring func(*big.Int) []*big.Int
-	naivefactoring func(*big.Int) ([]*big.Int, *big.Int)
+    factoring func(*big.Int, chan bool) ([]*big.Int, bool)
+	naivefactoring func(*big.Int) ([]*big.Int, *big.Int, bool)
 ) 
 
 
@@ -24,15 +24,18 @@ var (
 	stopTime time.Time
 	resultSubmission chan []*partResult
 	
-	numWorkers = 1
-	allowedRunTime  int = 5000 // milliseconds
+	numWorkers = 1 // Kommer antagligen alltid vara ett för kattis..
+	allowedRunTime  int = 14000 // milliseconds
 	prime_precision = 20
+	resultsReceived = 0
+	finishedTasks = 0
+	numTasks int
+	f factoring = pollardFactoring
 )
 
 
 
 func appendSlice(thisSlice, toAppend []*big.Int) []*big.Int {
-
 	for _, val := range toAppend {
 		thisSlice = append(thisSlice, val)
 	}
@@ -41,7 +44,7 @@ func appendSlice(thisSlice, toAppend []*big.Int) []*big.Int {
 
 // Coordinator main function
 // Coordinate task solving and when all is done print results
-func coordinate(factoringMethod factoring, tasks Tasks) { // finishedChan *chan bool) {
+func coordinate(factoringMethod factoring, tasks Tasks) { 
 
 	// Reinitialize submission channel
 	resultSubmission = make(chan []*partResult, len(tasks))
@@ -54,10 +57,9 @@ func coordinate(factoringMethod factoring, tasks Tasks) { // finishedChan *chan 
 
 	// Some counters
 	nextTask := 0
-	resultsReceived := 0
 	activeGoRoutines := 0
-	resultsReceived = 0
-
+	numTasks = len(tasks)
+	
 	// Receive and save results and create new tasks if possible until done
 	done := false
 	for !done {
@@ -66,11 +68,9 @@ func coordinate(factoringMethod factoring, tasks Tasks) { // finishedChan *chan 
 			if open {
 				for _, res := range result {
 					if res.factor == nil {
-						results[res.index] = nil
-						//~ ////fmt.Println("Coordinator:", "Failed task", res.index)			
+						results[res.index] = nil							
 						break
-					}
-					//~ ////fmt.Println("Coordinator:", "Received result", res.index)			
+					}					
 					results[res.index] = append(results[res.index], res)
 				}
 				activeGoRoutines--
@@ -79,34 +79,32 @@ func coordinate(factoringMethod factoring, tasks Tasks) { // finishedChan *chan 
 		default:
 			if done {
 				break
-			} else if activeGoRoutines < numWorkers && nextTask < len(tasks) {
+			} 
+			if nextTask < len(tasks) {
 				t := tasks[nextTask]
 				nextTask += 1
-				go work(*t, factoringMethod)
 				activeGoRoutines++
-			} else if nextTask == len(tasks) && resultsReceived == len(tasks) {
-				////fmt.Println("Coordinator:", "Finished work @", t1)
+				start_task(t)
+				activeGoRoutines--
+				
+			} else if nextTask == len(tasks) {
 				done = true
-			} else if time.Now().Equal(stopTime) || time.Now().After(stopTime) {
-				////fmt.Println("Coordinator:", "Timeout @", t1)
+			} 
+			/*
+			else if time.Now().Equal(stopTime) || time.Now().After(stopTime) {
+				////fmt.Println(duration)fmt.Println("Coordinator:", "Timeout @", t1)
 				done = true
-			}
-			runtime.Gosched()
+			}*/
+			//runtime.Gosched()
 		}
 	}
-	////fmt.Println("Coordinator:", "Done")
-	//elapsedTime := time.Since(initTime)
-	// Dump out to sys out
+
 	printResult(results)
-	////////fmt.Println("Coordinator:", "Finished after", elapsedTime)
-	//*finishedChan <- true
 }
 
 // Coordinator function
 // Print out the result when all tasks are finished
 func printResult(resultCollection [][]*partResult) {
-
-
 	for _, results := range resultCollection {
 		if results == nil || len(results) == 0 {
 			fmt.Println("fail")
@@ -124,30 +122,52 @@ func printResult(resultCollection [][]*partResult) {
 	}
 }
 
-// Worker main function
-// Do work with task and submit answer through global resultSubmission (channel)
-func work(task Task, f factoring) {
-
-	rawResult := make([]*big.Int, 0, 15)
-	newFactor := &task.toFactor
-	// Lets try to shorten the value
-	rawResult, newFactor = trialdivision(*newFactor)
-
+func work(task *Task) {	
+	//rawResult, newFactor, timed_out = trialdivision(newFactor, task.ch)		
+	/*
+	if(timed_out) {
+		return
+	}		
+	
 	// We are done
 	if newFactor == nil {
 		doResultSubmission(task.index, rawResult)
+		task.ch <- true
 		return
 	}
-
+	*/
+	
 	// Do expensive factorization
-	res := f(newFactor)
+	res, timed_out := f(task.toFactor, task.ch)			
+	if(timed_out) {
+		//~ fmt.Println("Timeout scoped out")
+		return
+	}					
+	// rawResult := appendSlice(rawResult, res)		
+	doResultSubmission(task.index, res)
+}
 
-	rawResult = appendSlice(rawResult, res)
-	//rawResult = append(rawResult)
-	//for _, r := range res {
-		//rawResult = append(rawResult, r)
-	//}
-	doResultSubmission(task.index, rawResult)
+// Worker main function
+// Do work with task and submit answer through global resultSubmission (channel)
+func start_task(task *Task) {
+
+	//rawResult := make([]*big.Int, 0, 15)
+	// newFactor := new(big.Int).Set(task.toFactor)
+
+	duration := stopTime.Sub(time.Now()) / time.Duration(numTasks - finishedTasks)
+	//~ fmt.Println(duration)
+	go task.Run()
+	select {
+		case <-time.After(duration):
+			//~ fmt.Println("Timeout occured.")
+			task.Stop()
+		case <-task.ch:		
+			//~ fmt.Println("Finished normally.")							
+	}
+	//~ fmt.Println("Finished task")
+	
+	finishedTasks++	
+
 	return
 }
 
@@ -184,9 +204,7 @@ func main() {
 		if !ok {
 			break
 		} else {
-			newTask := new(Task)
-			newTask.index = int(i)
-			newTask.toFactor = *factorValue
+			newTask := NewTask(int(i), factorValue, work)			
 			tasks = append(tasks, newTask)
 		}
 	}
