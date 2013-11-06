@@ -15,10 +15,10 @@ type partResult struct {
 	factor *big.Int
 }
 
-type factoring func(time.Time, time.Duration, *big.Int) []*big.Int
+type factoring func(*big.Int) []*big.Int
 
 var (
-	allowedRunTime int = 1400 // milliseconds
+	allowedRunTime int = 12000 // milliseconds
 	numWorkers int
 	numTasks int
 	inputsize int
@@ -28,17 +28,15 @@ var (
 	capacity = 100
 	
 	resultChannel = make(chan [][]*partResult)
-	stopTime = time.Now()
+	stopTime time.Time
 	
 	resultSubmission chan []*partResult
-	taskChannel chan *task
+	taskChannel chan *Task
 )
 
-// A function that should be runned in a go routine.
-// This function initializes new worker Go-routines 
-// for every task.
-// It will only do NumProcs workers at a time.
-func coordinate(tasks Tasks, finishedChan *chan bool) {
+// Coordinator main function
+// Coordinate task solving and when all is done print results
+func coordinate(factoringMethod factoring, tasks Tasks, finishedChan *chan bool) {
 
 	// Reinitialize submission channel
 	resultSubmission = make(chan []*partResult, numWorkers)
@@ -78,9 +76,11 @@ func coordinate(tasks Tasks, finishedChan *chan bool) {
 				if activeGoRoutines < numWorkers && nextTask < len(tasks) {				
 					t := tasks[nextTask]
 					nextTask += 1
-					go work(*t)
+					go work(*t, factoringMethod)
 					activeGoRoutines++					
 				} else if nextTask == len(tasks) && resultsReceived == len(tasks) {
+					done = true
+				} else if time.Now().Equal(stopTime) || time.Now().After(stopTime) {
 					done = true
 				} else {
 					runtime.Gosched()
@@ -95,9 +95,31 @@ func coordinate(tasks Tasks, finishedChan *chan bool) {
 	*finishedChan <- true
 }
 
-func work(task task) {
+// Coordinator function
+// Print out the result when all tasks are finished
+func printResult(resultCollection [][]*partResult) {
+	for _, results := range resultCollection {
+		if results == nil || len(results) == 0 {
+			fmt.Println("fail")
+			fmt.Println("")
+			continue
+		}
+		for _, res := range results {
+			if res.factor.Cmp(big.NewInt(0)) == 0 || res.factor.Cmp(big.NewInt(1)) == 0 {
+				fmt.Println("fail")
+				break
+			}
+			fmt.Println(res.factor)
+		}
+		fmt.Println("")
+	}
+}
+
+// Worker main function
+// Do work with task and submit answer through global resultSubmission (channel)
+func work(task Task, f factoring) {
 	// Do task if it is not nil
-	rawResult := factorise(&task.toFactor)
+	rawResult := f(&task.toFactor)
 	result := make([]*partResult, 0, 100)
 	if rawResult == nil {
 		res := partResult{task.index, nil}
@@ -110,24 +132,6 @@ func work(task task) {
 	}
 	// Send to coordinator
 	resultSubmission <- result
-}
-
-func printResult(resultCollection [][]*partResult) {
-	for _, results := range resultCollection {
-		if results == nil {
-			fmt.Println("fail")
-			fmt.Println("")
-			continue
-		}
-		for _, res := range results {
-			if res.factor.Cmp(big.NewInt(0)) == 0 {
-				fmt.Println("fail")
-				break
-			}
-			fmt.Println(res.factor)
-		}
-		fmt.Println("")
-	}
 }
 
 func main() {		
@@ -147,7 +151,7 @@ func main() {
         if !ok {
 			break
         } else {
-			newTask := new(task)
+			newTask := new(Task)
 			newTask.index = int(i)
 			newTask.toFactor = *factorValue
 			tasks = append(tasks, newTask)
@@ -169,11 +173,12 @@ func main() {
 	
 
     //~ numProcs := runtime.NumCPU()
-    numWorkers = runtime.NumCPU()
+    //numWorkers = runtime.NumCPU()
+    numWorkers = 1
 	runtime.GOMAXPROCS(numWorkers)
 	
 	quit := make(chan bool)
-	go coordinate(tasks, &quit)
+	go coordinate(pollardFactoring, tasks, &quit)
 	<- quit
 	//~ fmt.Println("Current time:", time.Now())
 }

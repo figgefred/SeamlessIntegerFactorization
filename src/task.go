@@ -2,12 +2,12 @@ package main
 
 import "math/big"
 
-type task struct {
+type Task struct {
 	index int
 	toFactor big.Int
 }
 
-type Tasks []*task
+type Tasks []*Task
 
 func (tasks Tasks) Len() int {
 	return len(tasks)
