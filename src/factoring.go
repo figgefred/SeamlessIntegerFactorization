@@ -10,42 +10,22 @@ import "os"
 import "strings"
 import "sort"
 
-type task struct {
-	index int
-	toFactor big.Int
-}
-
 type partResult struct {
 	index int
 	factor *big.Int
 }
 
-type polynomial func(*big.Int) *big.Int
-
-type Tasks []*task
-
-func (tasks Tasks) Len() int {
-	return len(tasks)
-}
-
-func (tasks Tasks) Less(i, j int) bool {
-	return (&tasks[i].toFactor).Cmp(&tasks[j].toFactor) == -1 
-}
-
-func (tasks Tasks) Swap(i, j int) {
-	tasks[i], tasks[j] = tasks[j], tasks[i]
-}
+type factoring func(time.Time, time.Duration, *big.Int) []*big.Int
 
 var (
 	allowedRunTime int = 1400 // milliseconds
 	numWorkers int
+	numTasks int
 	inputsize int
 	rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 	deadline = 10
 	prime_precision = 20
 	capacity = 100
-	resultsReceived int
-	number_of_tasks int
 	
 	resultChannel = make(chan [][]*partResult)
 	stopTime = time.Now()
@@ -73,7 +53,7 @@ func coordinate(tasks Tasks, finishedChan *chan bool) {
 	nextTask := 0
 	resultsReceived := 0
 	activeGoRoutines := 0
-	number_of_tasks = len(tasks)
+	numTasks = len(tasks)
 	resultsReceived = 0
 	
 	// Receive and save results and create new tasks if possible until done
@@ -122,6 +102,7 @@ func work(task task) {
 	if rawResult == nil {
 		res := partResult{task.index, nil}
 		result = append(result, &res)
+	//fmt.Println("Worker:", "Exeeded time limit of", timeout)
 	}
 	for _, rawRes := range rawResult {
 		res := partResult{task.index, rawRes}
@@ -129,7 +110,6 @@ func work(task task) {
 	}
 	// Send to coordinator
 	resultSubmission <- result
-
 }
 
 func printResult(resultCollection [][]*partResult) {
@@ -150,93 +130,18 @@ func printResult(resultCollection [][]*partResult) {
 	}
 }
 
-func pollardRho(toFactor *big.Int, f polynomial) (*big.Int, bool) {
-	var x,y,d *big.Int
-	x = big.NewInt(2)
-	y = big.NewInt(2)
-	d = big.NewInt(1)
-	for(time.Now().Before(stopTime) && d.Cmp(big.NewInt(1)) == 0) {
-		x = f(x) 
-		y = f(f(y))
-		r := new(big.Int)
-		r.Sub(x,y)
-		r.Abs(r)
-		d = r.GCD(nil, nil, r, toFactor)
-	}
-	if time.Now().After(stopTime) {
-		return nil, true
-	}
-	if(d.Cmp(toFactor) == 0) {
-		return d, true
-	}
-	
-	return d, false
-}
-
-func get_f(toFactor *big.Int) polynomial {
-	return func(x *big.Int) *big.Int {
-		r := new(big.Int).Mul(x,x)
-		r.Add(r, big.NewInt(rng.Int63()))
-		r.Mod(r, toFactor)
-		return r
-	}
-}
-
-func factorise(toFactor *big.Int) []*big.Int {	
-	factors := make([]*big.Int, 0, 100)
-	if(toFactor.ProbablyPrime(prime_precision)) {
-		return append(factors, toFactor)
-	}
-	
-	quo := new(big.Int)
-	quo.Set(toFactor)	
-	for(time.Now().Before(stopTime) && quo.Cmp(big.NewInt(1)) > 0) {
-
-		f := get_f(toFactor)
-		factor, error := pollardRho(quo, f)
-		
-		if(error || factor.Int64() == int64(0)) {
-			// Try again
-			continue
-		}
-		
-        quo.Quo(quo, factor)                                
-        
-        if(!factor.ProbablyPrime(prime_precision)) {	
-        	res := factorise(factor)
-        	if res == nil {
-        		return nil
-        	}
-        	for _, r := range res {
-        		factors = append(factors, r)
-        	}
-        } else {
-        	factors = append(factors, factor)
-        }
-
-        if(quo.ProbablyPrime(prime_precision)) {
-            factors = append(factors, quo)
-            break
-        }        
-	}
-
-	// Lets redo this - send back old task for hope of better function
-	return factors
-}
-
 func main() {		
 
 	reader := bufio.NewReader(os.Stdin)
 	
 	factorCount := 100
-	tasks := make(Tasks, 0, factorCount)
-	
+	tasks := make(Tasks, 0, factorCount)	
 	// Read in line by line
 	for i:=0; ; i++ {
         line, _ := reader.ReadString('\n')
-		if(strings.TrimSpace(line) == "") {
-				break
-		}
+    	if(strings.TrimSpace(line) == "") {
+    		break
+    	}
 
         factorValue, ok := (new(big.Int)).SetString(strings.TrimSpace(line), 10) 
         if !ok {
