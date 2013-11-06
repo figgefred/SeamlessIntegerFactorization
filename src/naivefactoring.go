@@ -16,20 +16,25 @@ func trialdivision(toFactor big.Int) ([]*big.Int, *big.Int) {
 	}
 	ZERO := big.NewInt(0)
 	r := new(big.Int)
-	for _, prime := range primes {
-		newFactor := new(big.Int)
-		newFactor.QuoRem(factor, prime, r)
-		if r.Cmp(ZERO) != 0 {
-			continue
-		}
 
-		resultBuffer = append(resultBuffer, prime)
-		if newFactor.ProbablyPrime(prime_precision) {
-			resultBuffer = append(resultBuffer, newFactor)
-			factor = nil
-			break
-		} else {
-			factor = newFactor	
+	hasDivided := false
+	for hasDivided {
+		hasDivided = false
+		for _, prime := range primes {
+			newFactor := new(big.Int)
+			newFactor.QuoRem(factor, prime, r)
+			if r.Cmp(ZERO) != 0 {
+				continue
+			}
+			hasDivided = true
+			resultBuffer = append(resultBuffer, prime)
+			if newFactor.ProbablyPrime(prime_precision) {
+				resultBuffer = append(resultBuffer, newFactor)
+				factor = nil
+				break
+			} else {
+				factor = newFactor	
+			}
 		}
 	}
 	return resultBuffer, factor

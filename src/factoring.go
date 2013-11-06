@@ -25,9 +25,19 @@ var (
 	resultSubmission chan []*partResult
 	
 	numWorkers = runtime.NumCPU()
-	allowedRunTime  int = 14000 // milliseconds
+	allowedRunTime  int = 5000 // milliseconds
 	prime_precision = 20
 )
+
+
+
+func appendSlice(thisSlice, toAppend []*big.Int) []*big.Int {
+
+	for _, val := range toAppend {
+		thisSlice = append(thisSlice, val)
+	}
+	return thisSlice
+}
 
 // Coordinator main function
 // Coordinate task solving and when all is done print results
@@ -131,10 +141,12 @@ func work(task Task, f factoring) {
 
 	// Do expensive factorization
 	res := f(newFactor)
-	rawResult = append(rawResult)
-	for _, r := range res {
-		rawResult = append(rawResult, r)
-	}
+
+	rawResult = appendSlice(rawResult, res)
+	//rawResult = append(rawResult)
+	//for _, r := range res {
+		//rawResult = append(rawResult, r)
+	//}
 	doResultSubmission(task.index, rawResult)
 	return
 }
