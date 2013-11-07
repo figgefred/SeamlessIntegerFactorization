@@ -7,7 +7,7 @@ import "runtime"
 import "bufio"
 import "os"
 import "strings"
-//~ import "sort"
+import "sort"
 
 var (
 	numWorkers = 1 // Kommer antagligen alltid vara ett för kattis..
@@ -29,6 +29,7 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 	factorCount := 100
 	tasks := make(Tasks, 0, factorCount)
+	start := time.Now()
 	// Read in line by line
 	for i := 0; ; i++ {
 		line, err := reader.ReadString('\n')
@@ -49,10 +50,18 @@ func main() {
 	stopTime := time.Now().Add(timeout)
 	
 	// Remember to sort results if you turn this on again.
-	//~ sort.Sort(tasks)
+	sort.Sort(tasks)
 
 	runtime.GOMAXPROCS(numWorkers)
 
 	tasks.RunTasksWithTimeout(stopTime)
-	tasks.PrintResults()
+	executed := time.Since(start)
+	
+	// Make sure that results are in right order
+	results := make(Tasks, len(tasks))
+	for _, task := range tasks {
+		results[task.index] = task
+	}
+	results.PrintResults()
+	dprint("Executed", executed)
 }
