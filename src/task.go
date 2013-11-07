@@ -23,7 +23,7 @@ type Task struct {
 func NewTask(index int, toFactor *big.Int, w doWork) *Task {
 	t := &Task {
 		ch: make(chan bool),
-		waitGroup: &sync.WaitGroup{},		
+		waitGroup: new(sync.WaitGroup),		
 		index: index,
 		toFactor: toFactor,
 		finished: false,
@@ -38,6 +38,7 @@ func (task* Task) Stop() {
 	task.ch <- true
 	task.finished = true
 	task.timed_out = true
+	//~ runtime.Gosched() 
 	task.waitGroup.Wait()
 }
 
@@ -60,7 +61,7 @@ func (task* Task) ShouldStop() bool {
 	}
 	
 	// Allow other go threads to run
-	runtime.Gosched() 	
+	runtime.Gosched() 
 	
 	select {
 		case <-task.ch:
@@ -72,13 +73,9 @@ func (task* Task) ShouldStop() bool {
 }
 
 func (task* Task) Run() {
-	defer task.waitGroup.Done()
-	defer close(task.ch)
 	task.result = task.w(task)	
-}
-
-func (task* Task) setResults(result []*big.Int) {
-	task.result = result
+	task.waitGroup.Done()
+	close(task.ch)
 }
 
 

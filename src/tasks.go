@@ -1,6 +1,7 @@
 package main
 
 import "time"
+import "sync"
 
 type Tasks []*Task
 
@@ -24,17 +25,45 @@ func (tasks Tasks) PrintResults() {
 
 func (tasks Tasks) RunTasksWithTimeout(stopTime time.Time) {		
 	finishedTasks := 0
-	for _, task := range tasks {
-		duration := stopTime.Sub(time.Now()) / time.Duration(len(tasks) - finishedTasks)
-		dprint(duration)
-		go task.Run()
-		select {
-			case <-time.After(duration):
-				dprint("Timeout occured.")
-				task.Stop()
-			case <-task.ch:		
-				dprint("Finished normally.")							
-		}		
-		finishedTasks++
+	waitCond := new(sync.Cond)
+	waitCond.L = new(sync.Mutex)
+
+	done := make(chan bool, 1)
+	current_running := 0
+	for _, task := range tasks {				
+		
+		waitCond.L.Lock()
+		for(current_running > numWorkers) {
+			waitCond.Wait()
+		}
+		current_running++
+		waitCond.L.Unlock()
+		
+		go func(task* Task) {					
+			todo := len(tasks) - finishedTasks - numWorkers
+			if(todo < 1) {
+				todo = 1
+			}
+			duration := stopTime.Sub(time.Now()) / time.Duration(todo)
+			dprint(duration)
+			go task.Run()
+			select {
+				case <-time.After(duration):
+					dprint("Timeout occured.")
+					task.Stop()
+				case <-task.ch:		
+					dprint("Finished normally.")							
+			}		
+				
+			waitCond.L.Lock()	
+			current_running--
+			finishedTasks++
+			if(finishedTasks == len(tasks)) {
+				done <- true
+			}	
+			waitCond.Signal()
+			waitCond.L.Unlock()	
+		}(task)
 	}
+	<-done
 }

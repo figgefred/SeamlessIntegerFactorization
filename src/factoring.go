@@ -10,8 +10,8 @@ import "strings"
 import "sort"
 
 var (
-	numWorkers = 1 // Kommer antagligen alltid vara ett för kattis..
-	allowedRunTime  int = 14000 // milliseconds
+	numWorkers = 1 //runtime.NumCPU() // Kommer antagligen alltid vara ett för kattis..
+	allowedRunTime  int = 10000 // milliseconds
 	work_function = pollardFactoring
 	//work_function = naivefactoring
 	debug = false
