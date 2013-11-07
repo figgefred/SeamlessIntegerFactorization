@@ -43,8 +43,13 @@ func isDivisible(toFactor, prime *big.Int) (bool, *big.Int) {
 		return r.Cmp(ZERO) == 0, newFactor
 }
 
-func trialdivision(task *Task, toFactor *big.Int) ([]*big.Int, *big.Int) {
-	factor := toFactor
+func naivefactoring(task *Task) ([]*big.Int) {
+	res, _ := trialdivision(task)
+	return res
+}
+
+func trialdivision(task *Task) ([]*big.Int, *big.Int) {
+	factor := task.toFactor
 	resultBuffer := make([]*big.Int, 0, 20)
 	if factor.ProbablyPrime(prime_precision) {
 		return append(resultBuffer, factor), nil
