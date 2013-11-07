@@ -4,11 +4,33 @@ package  main
 import "math/big"
 
 var (
-	primes []*big.Int = getPrimes()
-	primeCalcCount = 50000
+	primes []uint16 = getPrimes() // Prime values of up to 65535 ... Count is 6544
+	primeCalcCount = 2250		  // Above 6544 equates to 6544
+								  // 2250 verkara vara Kattis mogen
 )
 
-func getPrimes() ([]*big.Int) {
+func getPrimes() ([]uint16) {
+	primes := make([]uint16, 0, primeCalcCount)
+	//TWO := big.NewInt(2)
+	primes = append(primes,2)
+	val := 3
+	primes = append(primes, uint16(val))
+	
+	for i := 2; i < primeCalcCount && val < 65535; i++ {
+		for {
+			if big.NewInt(int64(val)).ProbablyPrime(prime_precision) {
+				primes = append(primes, uint16(val))
+				break
+			}
+			val += 2
+		}
+		val += 2
+	}
+	//fmt.Println("FOUND", len(primes), "primes")
+	return primes
+}
+
+/*func getPrimes() ([]*big.Int) {
 	primes := make([]*big.Int, primeCalcCount)
 	
 	TWO := big.NewInt(2)
@@ -29,22 +51,35 @@ func getPrimes() ([]*big.Int) {
 
 //fmt.Println(primes)
 	return primes
-}
+}*/
 
 // Returns true iff prime is a divisor of 'toFactor'
 // Else false
 // *big.Int will refer to an Int, yet is only guaranteed to be
 // the true quotient if bool is true.
 func isDivisible(toFactor, prime *big.Int) (bool, *big.Int) {
-		
 		newFactor := new(big.Int)
 		r := new(big.Int)
 		newFactor.QuoRem(toFactor, prime, r)
 		return r.Cmp(ZERO) == 0, newFactor
 }
 
-func naivefactoring(task *Task) ([]*big.Int) {
-	res, _ := trialdivision(task)
+func naiveFactoring(task *Task) ([]*big.Int) {
+
+	res, factor := trialdivision(task)
+	if factor != nil {
+		task.timed_out = true
+	}
+	return res
+}
+
+func trialDivisionPollardFactoring(task *Task) ([]*big.Int) {
+
+	res, factor := trialdivision(task)
+	if factor == nil {
+		return res
+	}
+	res = append(res, _pollardFactoring(task, factor)...)
 	return res
 }
 
@@ -54,11 +89,10 @@ func trialdivision(task *Task) ([]*big.Int, *big.Int) {
 	if factor.ProbablyPrime(prime_precision) {
 		return append(resultBuffer, factor), nil
 	}
-
 	// Loop over to find primes that divide 'factor'
-	for _, prime := range primes {
+	for _, p := range primes {
 		// Prime greater than 'factor', then just break
-
+		prime := big.NewInt(int64(p))
 		if(task.ShouldStop()) {
 			return resultBuffer, factor
 		}
@@ -116,3 +150,4 @@ func trialdivision(task *Task) ([]*big.Int, *big.Int) {
 	resultBuffer = append(resultBuffer, tmp...)
 	return resultBuffer, factor
 }
+

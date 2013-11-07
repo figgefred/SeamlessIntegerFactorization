@@ -11,9 +11,10 @@ import "sort"
 
 var (
 	numWorkers = 1 //runtime.NumCPU() // Kommer antagligen alltid vara ett för kattis..
-	allowedRunTime  int = 10000 // milliseconds
-	work_function = pollardFactoring
-	//work_function = naivefactoring
+	allowedRunTime  int = 14000 // milliseconds
+	//work_function = pollardFactoring
+	work_function = trialDivisionPollardFactoring
+	//work_function = naiveFactoring
 	debug = false
 )
 
@@ -58,7 +59,7 @@ func main() {
 	tasks.RunTasksWithTimeout(stopTime)
 	executed := time.Since(start)
 	
-	//~ // Make sure that results are in right order
+	// Make sure that results are in right order
 	results := make(Tasks, len(tasks))
 	for _, task := range tasks {
 		results[task.index] = task
