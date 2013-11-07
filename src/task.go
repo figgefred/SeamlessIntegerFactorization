@@ -3,6 +3,7 @@ package main
 import "math/big"
 import "sync"
 import "fmt"
+import "runtime"
 
 type doWork func(*Task) ([]*big.Int)
 
@@ -57,6 +58,9 @@ func (task* Task) ShouldStop() bool {
 	if task.finished {
 		return task.finished
 	}
+	
+	// Allow other go threads to run
+	runtime.Gosched() 	
 	
 	select {
 		case <-task.ch:

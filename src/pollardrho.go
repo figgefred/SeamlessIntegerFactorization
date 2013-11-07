@@ -1,7 +1,6 @@
 package main
 
 import "math/big"
-import "runtime"
 
 type polynomial func(*big.Int) *big.Int
 
@@ -24,18 +23,18 @@ func pollardRho(task *Task, toFactor *big.Int) (*big.Int, bool) {
 	// i < 10 to prevent a bad random seed from finding a factor.
 	for(d.Cmp(ONE) == 0 && i < 10) { 
 		i++	
+		/*
 		if(task.ShouldStop()) {
 			return d, false
-		}		
+		}*/		
 		
 		x = x.Mul(x,x).Add(x, rand_const).Mod(x, toFactor)
 		y = y.Mul(y,y).Add(y, rand_const).Mod(y, toFactor)
-		y = y.Mul(y,y).Add(y, rand_const).Mod(y, toFactor)
-		//~ y = f(f(y))
+		y = y.Mul(y,y).Add(y, rand_const).Mod(y, toFactor)		
 		r.Sub(x,y).Abs(r)		
 		d = r.GCD(nil, nil, r, toFactor)
 	}
-	if(d.Cmp(toFactor) == 0) {
+	if(i == 10 || d.Cmp(toFactor) == 0) {
 		return d, true
 	}
 	
@@ -47,12 +46,13 @@ func pollardFactoring(task *Task) ([]*big.Int) {
 }
 
 func _pollardFactoring(task *Task, toFactor *big.Int) ([]*big.Int) {
-	buffer := make([]*big.Int, 0, 100)
+	buffer := make([]*big.Int, 0)
 	quo := new(big.Int)
-	quo.Set(task.toFactor)
+	quo.Set(toFactor)
 	
 	//~ f := get_f(task.toFactor)
-	for !quo.ProbablyPrime(prime_precision) {//quo.Cmp(big.NewInt(1)) > 0) {
+	for !quo.ProbablyPrime(prime_precision) {//quo.Cmp(big.NewInt(1)) > 0) {	
+		
 		if(task.ShouldStop()) {
 			return buffer
 		}
@@ -71,24 +71,18 @@ func _pollardFactoring(task *Task, toFactor *big.Int) ([]*big.Int) {
 
 		factor, error := pollardRho(task, quo)	
 		
-		if(error || !factor.ProbablyPrime(prime_precision)) {
-			// Allow other go threads to run
-			runtime.Gosched() 
-			// Try again
-			//~ f = get_f(task.toFactor)
+		if(error || factor.Cmp(ONE) == 0) {
 			continue
 		}
-		
-		
+
 		if(!factor.ProbablyPrime(prime_precision)) {
 			sub := _pollardFactoring(task, factor)
 			buffer = append(buffer, sub...)		
-		}
-	
-		buffer = append(buffer, factor)
-        quo.Quo(quo, factor)    
-        
-                          
+		} else {	
+			buffer = append(buffer, factor)
+		}     
+		   
+        quo.Quo(quo, factor)         
 	}
 	return append(buffer, quo)
 }

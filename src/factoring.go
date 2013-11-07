@@ -11,9 +11,9 @@ import "strings"
 
 var (
 	numWorkers = 1 // Kommer antagligen alltid vara ett för kattis..
-	allowedRunTime  int = 5000 // milliseconds
+	allowedRunTime  int = 14000 // milliseconds
 	work_function = pollardFactoring
-	debug = true
+	debug = false
 )
 
 func dprint(a ...interface{}) {
