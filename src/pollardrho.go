@@ -2,18 +2,18 @@ package main
 
 import "math/big"
 
-type polynomial func(*big.Int) *big.Int
-
 func pollardRho(task *Task, toFactor *big.Int) (*big.Int, bool) {	
 	/*
 	x := TWO
 	y := TWO
 	*/
+	
 	x := new(big.Int).Rand(rng, toFactor)
 	y := new(big.Int).Rand(rng, toFactor)
+	
 	d := ONE	
 	r := new(big.Int)
-	rand_const := new(big.Int).Rand(rng, toFactor)
+	rand_const := r.Rand(rng, toFactor)
 	
 	if(r.Mod(toFactor, TWO).Cmp(ZERO) == 0) {
 		return TWO, false
@@ -51,8 +51,7 @@ func _pollardFactoring(task *Task, toFactor *big.Int) ([]*big.Int) {
 	quo.Set(toFactor)
 	
 	//~ f := get_f(task.toFactor)
-	for !quo.ProbablyPrime(prime_precision) {//quo.Cmp(big.NewInt(1)) > 0) {	
-		
+	for !quo.ProbablyPrime(prime_precision) {//quo.Cmp(big.NewInt(1)) > 0) {			
 		if(task.ShouldStop()) {
 			return buffer
 		}

@@ -12,9 +12,9 @@ import "sort"
 var (
 	numWorkers = 1 // Kommer antagligen alltid vara ett för kattis..
 	allowedRunTime  int = 14000 // milliseconds
-	//work_function = pollardFactoring
-	work_function = naivefactoring
-	debug = true
+	work_function = pollardFactoring
+	//work_function = naivefactoring
+	debug = false
 )
 
 func dprint(a ...interface{}) {
@@ -48,7 +48,7 @@ func main() {
 	}
 
 	timeout := time.Duration(allowedRunTime) * time.Millisecond	
-	stopTime := time.Now().Add(timeout)
+	stopTime := start.Add(timeout)
 	
 	// Remember to sort results if you turn this on again.
 	sort.Sort(tasks)
@@ -58,7 +58,7 @@ func main() {
 	tasks.RunTasksWithTimeout(stopTime)
 	executed := time.Since(start)
 	
-	// Make sure that results are in right order
+	//~ // Make sure that results are in right order
 	results := make(Tasks, len(tasks))
 	for _, task := range tasks {
 		results[task.index] = task
