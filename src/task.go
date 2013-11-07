@@ -4,7 +4,7 @@ import "math/big"
 import "sync"
 import "fmt"
 
-type doWork func(*Task) ([]*big.Int, bool)
+type doWork func(*Task) ([]*big.Int)
 
 type Task struct {
 	index int
@@ -36,6 +36,7 @@ func (task* Task) Stop() {
 	//~ close(task.ch)
 	task.ch <- true
 	task.finished = true
+	task.timed_out = true
 	task.waitGroup.Wait()
 }
 
@@ -69,7 +70,7 @@ func (task* Task) ShouldStop() bool {
 func (task* Task) Run() {
 	defer task.waitGroup.Done()
 	defer close(task.ch)
-	task.result, task.timed_out = task.w(task)	
+	task.result = task.w(task)	
 }
 
 func (task* Task) setResults(result []*big.Int) {

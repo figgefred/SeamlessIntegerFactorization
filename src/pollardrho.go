@@ -1,69 +1,63 @@
 package main
 
 import "math/big"
-import "math/rand"
 import "runtime"
-import "time"
 
 type polynomial func(*big.Int) *big.Int
 
-var (
-	rng = rand.New(rand.NewSource(time.Now().UnixNano()))
-)
-
-func get_f(toFactor *big.Int) polynomial {
-	return func(x *big.Int) *big.Int {
-		r := new(big.Int).Mul(x,x)
-		rand_const := rng.Int63()  
-		for rand_const < 1 {
-			rand_const = rng.Int63()  
-		}
-		r.Add(r, big.NewInt(rand_const))
-		r.Mod(r, toFactor)
-		return r
-	}
-}
-
-func pollardRho(task *Task, toFactor *big.Int, f polynomial) (*big.Int, bool, bool) {
-	var x,y,d *big.Int
-	x = big.NewInt(2)
-	y = big.NewInt(2)
-	d = big.NewInt(1)
-
-	for(d.Cmp(big.NewInt(1)) == 0) {	
-		if(task.ShouldStop()) {
-			return d, false, true
-		}
-		
-		
-		x = f(x) 
-		y = f(f(y))
-		r := new(big.Int)
-		r.Sub(x,y)
-		r.Abs(r)
-		d = r.GCD(nil, nil, r, toFactor)
-		    
-		// Allow other go threads to run
-        runtime.Gosched()
-	}
-	if(d.Cmp(toFactor) == 0) {
-		return d, true, false
+func pollardRho(task *Task, toFactor *big.Int) (*big.Int, bool) {	
+	/*
+	x := TWO
+	y := TWO
+	*/
+	x := new(big.Int).Rand(rng, toFactor)
+	y := new(big.Int).Rand(rng, toFactor)
+	d := ONE	
+	r := new(big.Int)
+	rand_const := new(big.Int).Rand(rng, toFactor)
+	
+	if(r.Mod(toFactor, TWO).Cmp(ZERO) == 0) {
+		return TWO, false
 	}
 	
-	return d, false, false
+	i := 0
+	// i < 10 to prevent a bad random seed from finding a factor.
+	for(d.Cmp(ONE) == 0 && i < 10) { 
+		i++	
+		if(task.ShouldStop()) {
+			return d, false
+		}		
+		
+		x = x.Mul(x,x).Add(x, rand_const).Mod(x, toFactor)
+		y = y.Mul(y,y).Add(y, rand_const).Mod(y, toFactor)
+		y = y.Mul(y,y).Add(y, rand_const).Mod(y, toFactor)
+		//~ y = f(f(y))
+		r.Sub(x,y).Abs(r)		
+		d = r.GCD(nil, nil, r, toFactor)
+	}
+	if(d.Cmp(toFactor) == 0) {
+		return d, true
+	}
+	
+	return d, false
 }
 
-func pollardFactoring(task *Task) ([]*big.Int, bool) {	
+func pollardFactoring(task *Task) ([]*big.Int) {	
+	return _pollardFactoring(task, task.toFactor)
+}
+
+func _pollardFactoring(task *Task, toFactor *big.Int) ([]*big.Int) {
 	buffer := make([]*big.Int, 0, 100)
 	quo := new(big.Int)
 	quo.Set(task.toFactor)
 	
-	f := get_f(task.toFactor)
+	//~ f := get_f(task.toFactor)
 	for !quo.ProbablyPrime(prime_precision) {//quo.Cmp(big.NewInt(1)) > 0) {
 		if(task.ShouldStop()) {
-			return buffer, true
+			return buffer
 		}
 		
+		/*
 		tmp, newQuo, timed_out := trialdivision(task,quo)		
 		buffer = append(buffer, tmp...)
 		if(timed_out) {
@@ -73,22 +67,28 @@ func pollardFactoring(task *Task) ([]*big.Int, bool) {
 			return buffer, false
 		}		
 		quo = newQuo		
-		
+		*/
 
-		factor, error, timed_out := pollardRho(task, quo, f)		
-		if(timed_out) {
-			return buffer, true
-		}
+		factor, error := pollardRho(task, quo)	
 		
 		if(error || !factor.ProbablyPrime(prime_precision)) {
+			// Allow other go threads to run
+			runtime.Gosched() 
 			// Try again
-			f = get_f(task.toFactor)
+			//~ f = get_f(task.toFactor)
 			continue
 		}
+		
+		
+		if(!factor.ProbablyPrime(prime_precision)) {
+			sub := _pollardFactoring(task, factor)
+			buffer = append(buffer, sub...)		
+		}
+	
 		buffer = append(buffer, factor)
-        quo.Quo(quo, factor)                                
-
+        quo.Quo(quo, factor)    
+        
+                          
 	}
-	buffer = append(buffer, quo)
-	return buffer, false
+	return append(buffer, quo)
 }
