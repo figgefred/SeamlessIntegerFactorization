@@ -13,8 +13,9 @@ var (
 	numWorkers = 1 // Kommer antagligen alltid vara ett för kattis..
 	allowedRunTime  int = 14000 // milliseconds
 	//work_function = pollardFactoring
-	work_function = naivefactoring
-	debug = true
+	//work_function = trialDivisionPollardFactoring
+	work_function = naiveFactoring
+	debug = false
 )
 
 func dprint(a ...interface{}) {
