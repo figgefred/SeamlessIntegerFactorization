@@ -5,7 +5,7 @@ import "math/big"
 
 var (
 	primes []uint16 = getPrimes() // Prime values of up to 65535 ... Count is 6544
-	primeCalcCount = 2250		  // Above 6544 equates to 6544
+	primeCalcCount = 5000		  // Above 6544 equates to 6544
 								  // 2250 verkara vara Kattis mogen
 )
 
@@ -57,7 +57,7 @@ func getPrimes() ([]uint16) {
 // Else false
 // *big.Int will refer to an Int, yet is only guaranteed to be
 // the true quotient if bool is true.
-func isDivisible(toFactor, prime *big.Int) (bool, *big.Int) {
+func divide(toFactor, prime *big.Int) (bool, *big.Int) {
 		newFactor := new(big.Int)
 		r := new(big.Int)
 		newFactor.QuoRem(toFactor, prime, r)
@@ -100,7 +100,7 @@ func trialdivision(task *Task) ([]*big.Int, *big.Int) {
 		if prime.Cmp(factor) > 0 {
 			break
 		}
-		divisible, newFactor := isDivisible(factor, prime)
+		divisible, newFactor := divide(factor, prime)
 		if !divisible {
 			continue
 		}
@@ -122,18 +122,13 @@ func trialdivision(task *Task) ([]*big.Int, *big.Int) {
 	
 	// Temporary list of results
 	tmp := make([]*big.Int, 0, cap(resultBuffer))
-	hasDivided := true	
-	for hasDivided {
-		hasDivided= false
-		for _, prime := range resultBuffer {
-			// Prime greater than 'factor', then just break
-			if prime.Cmp(factor) > 0 {
-				break
-			}
-			divisible, newFactor := isDivisible(factor, prime)
-			if !divisible {
-				continue
-			}
+	for _, prime := range resultBuffer {
+		// Prime greater than 'factor', then just break
+		if prime.Cmp(factor) > 0 {
+			break
+		}
+		divided, newFactor := divide(factor, prime)		
+		for divided {
 			tmp = append(tmp, prime)
 			if newFactor.ProbablyPrime(prime_precision) {
 				tmp = append(tmp, newFactor)
@@ -142,11 +137,16 @@ func trialdivision(task *Task) ([]*big.Int, *big.Int) {
 			} else {
 				factor = newFactor	
 			}
+			divided, newFactor = divide(factor, prime)		
+		}
+		if factor == nil {
+			break
 		}
 		if(task.ShouldStop()) {
 			return resultBuffer, factor
 		}
 	}
+	
 	resultBuffer = append(resultBuffer, tmp...)
 	return resultBuffer, factor
 }
