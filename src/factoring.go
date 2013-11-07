@@ -11,8 +11,7 @@ import "strings"
 
 var (
 	numWorkers = 1 // Kommer antagligen alltid vara ett för kattis..
-	allowedRunTime  int = 14500 // milliseconds
-	prime_precision = 20
+	allowedRunTime  int = 5000 // milliseconds
 	work_function = pollardFactoring
 	debug = true
 )
